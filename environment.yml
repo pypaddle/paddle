@@ -1,0 +1,22 @@
+name: paddle
+channels:
+- pytorch
+- defaults
+dependencies:
+- numpy=1.14.2=py36hdbf6ddf_1
+- pip=9.0.3=py36_0
+- pytest>=3.0.7
+- python>=3.6
+- scikit-learn=0.19.1=py36h7aa7ec6_0
+- scipy=1.0.0=py36hbf646e7_0
+- seaborn=0.7.1=py36_0
+- tensorboard=1.6.0=py36hf484d3e_0
+- tensorflow=1.6.0=0
+- tensorflow-base=1.6.0=py36hff88cb2_0
+- tensorflow-tensorboard=0.1.5=py36_0
+- pytorch>=0.4.0
+- pytorch-cpu
+- networkx
+- pip:
+  - "--editable=git+https://github.com/openml/openml-python.git@a2b602b1c939d533d78956661e7771bcd2284d60#egg=openml-master"
+
