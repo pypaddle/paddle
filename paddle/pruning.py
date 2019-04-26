@@ -1,5 +1,9 @@
 import torch
+import os
+import numpy as np
 from enum import Enum
+from paddle.paddle import prunable_layers_with_name, prunable_layers
+from paddle.util import find_network_threshold
 from .util import *
 
 
@@ -122,13 +126,13 @@ def optimal_brain_surgeon_layer_wise(self, network, percentage):
     hessian_inverse_path = calculate_obsl_saliency(self, network)
 
     # prune the elements from the matrix
-    for name, layer in get_single_pruning_layer_with_name(network):
+    for name, layer in prunable_layers_with_name(network):
         edge_cut(layer, hessian_inverse_path + name + '.npy', value=percentage)
 
 
 def optimal_brain_surgeon_layer_wise_bucket(self, network, bucket_size):
     hessian_inverse_path = calculate_obsl_saliency(self, network)
-    for name, layer in get_single_pruning_layer_with_name(network):
+    for name, layer in prunable_layers_with_name(network):
         edge_cut(layer, hessian_inverse_path + name + '.npy', value=bucket_size, strategy=PruningStrategy.BUCKET)
 
 
@@ -228,7 +232,7 @@ def prune_network_by_saliency(network, value, strategy=PruningStrategy.PERCENTAG
     th = find_network_threshold(network, value, strategy=strategy)
 
     # set the mask
-    for layer in get_single_pruning_layer(network):
+    for layer in prunable_layers(network):
         # All deleted weights should be set to zero so they should definetly be less than the threshold since this is
         # positive.
         layer.set_mask(torch.ge(layer.get_saliency(), th).float() * layer.get_mask())
@@ -237,7 +241,7 @@ def prune_network_by_saliency(network, value, strategy=PruningStrategy.PERCENTAG
 def prune_layer_by_saliency(network, value, strategy=PruningStrategy.PERCENTAGE):
     pre_pruned_weight_count = get_network_weight_count(network).item()
 
-    for layer in get_single_pruning_layer(network):
+    for layer in prunable_layers(network):
         mask = list(layer.get_mask().abs().numpy().flatten())
         saliency = list(layer.get_saliency().numpy().flatten())
         _, filtered_saliency = zip(
@@ -270,11 +274,11 @@ def calculate_obd_saliency(self, network):
     loss = cross_validation_error(self.valid_dataset, network, self.criterion)
 
     # calculate the first order gradients for all weights from the pruning layers.
-    weight_params = map(lambda x: x.get_weight(), get_single_pruning_layer(network))
+    weight_params = map(lambda x: x.get_weight(), prunable_layers(network))
     loss_grads = grad(loss, weight_params, create_graph=True)
 
     # iterate over all layers and zip them with their corrosponding first gradient
-    for grd, layer in zip(loss_grads, get_single_pruning_layer(network)):
+    for grd, layer in zip(loss_grads, prunable_layers(network)):
         all_grads = []
         mask = layer.get_mask().view(-1)
         weight = layer.get_weight()
@@ -319,7 +323,7 @@ def calculate_obsl_saliency(self, network):
     for i, (images, labels) in enumerate(self.valid_dataset):
         images = images.reshape(-1, 28 * 28)
         network(images)
-        for name, layer in get_single_pruning_layer_with_name(network):
+        for name, layer in prunable_layers_with_name(network):
             layer_input = layer.layer_input.data.numpy()
             path = layer_input_path + name + '/'
             if not os.path.exists(path):
@@ -328,7 +332,7 @@ def calculate_obsl_saliency(self, network):
             np.save(path + 'layerinput-' + str(i), layer_input)
 
     # generate the hessian matrix for each layer
-    for name, layer in get_single_pruning_layer_with_name(network):
+    for name, layer in prunable_layers_with_name(network):
         hessian_inverse_location = hessian_inverse_path + name
         generate_hessian_inverse_fc(layer, hessian_inverse_location, layer_input_path + name)
 

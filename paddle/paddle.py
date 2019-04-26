@@ -30,12 +30,12 @@ def prunable_layers(network):
                 yield layer
 
 
-def prunable_layers_and_name(network):
+def prunable_layers_with_name(network):
     for name, child in network.named_children():
         if type(child) is MaskedLinearLayer:
             yield name, child
         elif type(child) is nn.ModuleList:
-            for name, layer in prunable_layers_and_name(child):
+            for name, layer in prunable_layers_with_name(child):
                 yield name, layer
 
 

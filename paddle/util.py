@@ -5,7 +5,7 @@ from torch.autograd import grad
 import numpy as np
 
 from paddle.pruning import PruningStrategy
-from .paddle import MaskedLinearLayer, prunable_layers_and_name, prunable_layers
+from .paddle import MaskedLinearLayer, prunable_layers_with_name, prunable_layers
 
 __all__ = [
     "generate_hessian_inverse_fc",
@@ -206,7 +206,7 @@ def get_filtered_saliency(saliency, mask):
 
 def get_layer_count(network):
     i = 0
-    for _ in prunable_layers_and_name(network):
+    for _ in prunable_layers_with_name(network):
         i += 1
     return i
 
