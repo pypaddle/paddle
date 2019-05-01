@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.nn.functional as F
+from torch.autograd import Variable
+from . import export
 
 
+@export
 class MaskedDeepFFN(nn.Module):
     def __init__(self, input_size, num_classes, hidden_layers : list):
         super(MaskedDeepFFN, self).__init__()
@@ -21,6 +23,7 @@ class MaskedDeepFFN(nn.Module):
         return self.layer_out(out)
 
 
+@export
 def prunable_layers(network):
     for child in network.children():
         if type(child) is MaskedLinearLayer:
@@ -30,6 +33,7 @@ def prunable_layers(network):
                 yield layer
 
 
+@export
 def prunable_layers_with_name(network):
     for name, child in network.named_children():
         if type(child) is MaskedLinearLayer:
@@ -39,6 +43,7 @@ def prunable_layers_with_name(network):
                 yield name, layer
 
 
+@export
 class MaskedLinearLayer(nn.Linear):
     def __init__(self, in_feature, out_features, bias=True, keep_layer_input=False):
         """

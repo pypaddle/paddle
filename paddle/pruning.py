@@ -1,21 +1,16 @@
 import torch
-from torch.autograd import grad
 import os
 import numpy as np
+from torch.autograd import grad
 from enum import Enum
-
 from paddle.learning import cross_validation_error
 from paddle.paddle import prunable_layers_with_name, prunable_layers
 from paddle.util import find_network_threshold
 from .util import *
+from . import export
 
 
-
-__all__ = [
-    'PruneNeuralNetMethod',
-    'PruningStrategy'
-]
-
+@export
 class PruneNeuralNetMethod:
     """
     Strategy pattern for the selection of the currently used pruning method.
@@ -89,6 +84,7 @@ class PruneNeuralNetMethod:
 #
 # Top-Down Pruning Approaches
 #
+@export
 def optimal_brain_damage(self, network, percentage):
     """
     Implementation of the optimal brain damage algorithm.
@@ -104,11 +100,13 @@ def optimal_brain_damage(self, network, percentage):
     prune_network_by_saliency(network, percentage)
 
 
+@export
 def optimal_brain_damage_absolute(self, network, number):
     calculate_obd_saliency(self, network)
     prune_network_by_saliency(network, number, strategy=PruningStrategy.ABSOLUTE)
 
 
+@export
 def optimal_brain_damage_bucket(self, network, bucket_size):
     calculate_obd_saliency(self, network)
     prune_network_by_saliency(network, bucket_size, strategy=PruningStrategy.BUCKET)
@@ -117,6 +115,7 @@ def optimal_brain_damage_bucket(self, network, bucket_size):
 #
 # Layer-wise approaches
 #
+@export
 def optimal_brain_surgeon_layer_wise(self, network, percentage):
     """
     Layer-wise calculation of the inverse of the hessian matrix. Then the weights are ranked similar to the original
@@ -133,6 +132,7 @@ def optimal_brain_surgeon_layer_wise(self, network, percentage):
         edge_cut(layer, hessian_inverse_path + name + '.npy', value=percentage)
 
 
+@export
 def optimal_brain_surgeon_layer_wise_bucket(self, network, bucket_size):
     hessian_inverse_path = calculate_obsl_saliency(self, network)
     for name, layer in prunable_layers_with_name(network):
@@ -142,12 +142,14 @@ def optimal_brain_surgeon_layer_wise_bucket(self, network, bucket_size):
 #
 # Random pruning
 #
+@export
 def random_pruning(self, network, percentage):
     set_random_saliency(network)
     # prune the percentage% weights with the smallest random saliency
     prune_network_by_saliency(network, percentage)
 
 
+@export
 def random_pruning_absolute(self, network, number):
     set_random_saliency(network)
     prune_network_by_saliency(network, number, strategy=PruningStrategy.ABSOLUTE)
@@ -156,6 +158,7 @@ def random_pruning_absolute(self, network, number):
 #
 # Magnitude based approaches
 #
+@export
 def magnitude_class_blinded(self, network, percentage):
     """
     Implementation of weight based pruning. In each step the percentage of not yet pruned weights will be eliminated
@@ -171,18 +174,22 @@ def magnitude_class_blinded(self, network, percentage):
     prune_network_by_saliency(network, percentage)
 
 
+@export
 def magnitude_class_blinded_absolute(self, network, number):
     prune_network_by_saliency(network, number, strategy=PruningStrategy.ABSOLUTE)
 
 
+@export
 def magnitude_class_uniform(self, network, percentage):
     prune_layer_by_saliency(network, percentage)
 
 
+@export
 def magnitude_class_uniform_absolute(self, network, number):
     prune_layer_by_saliency(network, number, strategy=PruningStrategy.ABSOLUTE)
 
 
+@export
 def magnitude_class_distributed(self, network, percentage):
     """
     This idea comes from the paper 'Learning both Weights and Connections for Efficient Neural Networks'
@@ -205,11 +212,13 @@ def magnitude_class_distributed(self, network, percentage):
     prune_network_by_saliency(network, percentage)
 
 
+@export
 def magnitude_class_distributed_absolute(self, network, number):
     set_distributed_saliency(network)
     prune_network_by_saliency(network, number, strategy=PruningStrategy.ABSOLUTE)
 
 
+@export
 class PruningStrategy(Enum):
     """
     Enum to represent the different prunuing strategies that can be used.
@@ -219,6 +228,7 @@ class PruningStrategy(Enum):
     ABSOLUTE = 1
     BUCKET = 2
 
+@export
 def prune_network_by_saliency(network, value, strategy=PruningStrategy.PERCENTAGE):
     """
     Prune the number of percentage weights from the network. The elements are pruned according to the saliency that is
@@ -241,6 +251,7 @@ def prune_network_by_saliency(network, value, strategy=PruningStrategy.PERCENTAG
         layer.set_mask(torch.ge(layer.get_saliency(), th).float() * layer.get_mask())
 
 
+@export
 def prune_layer_by_saliency(network, value, strategy=PruningStrategy.PERCENTAGE):
     pre_pruned_weight_count = get_network_weight_count(network).item()
 
@@ -272,6 +283,7 @@ def prune_layer_by_saliency(network, value, strategy=PruningStrategy.PERCENTAGE)
         # set mask
         layer.set_mask(torch.ge(layer.get_saliency(), th).float() * layer.get_mask())
 
+@export
 def calculate_obd_saliency(self, network):
     # the loss of the network on the cross validation set
     loss = cross_validation_error(self.valid_dataset, network, self.criterion)
@@ -308,6 +320,7 @@ def calculate_obd_saliency(self, network):
             torch.tensor(all_grads).view(weight.size()) * layer.get_weight().data.pow(2) * 0.5)
 
 
+@export
 def calculate_obsl_saliency(self, network):
     out_dir = './out/hessian'
     if not os.path.exists(out_dir):

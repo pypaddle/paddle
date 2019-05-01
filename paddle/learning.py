@@ -1,6 +1,8 @@
 import torch
+from . import export
 
 
+@export
 def test(test_loader, model):
     """
     Test the model on the test data set provided by the test loader.
@@ -21,6 +23,7 @@ def test(test_loader, model):
         return 100 * correct / total
 
 
+@export
 def train(train_loader, model, optimizer, criterion, percentage=False):
     """
     Train the model on the train data set with a loss function and and optimization algorithm.
@@ -63,6 +66,7 @@ def train(train_loader, model, optimizer, criterion, percentage=False):
     return total_loss / len(train_loader), per
 
 
+@export
 def cross_validation_error(data_set, model, criterion):
     """
     Calculate the loss of the network on the cross-validation dataset.

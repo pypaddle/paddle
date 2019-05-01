@@ -6,9 +6,12 @@
 from setuptools import setup
 from setuptools import find_packages
 
+with open(os.path.join('./', 'VERSION')) as version_file:
+    project_version = version_file.read().strip()
+
 setup(
     name='paddle',
-    version='0.1.0',
+    version=project_version,
     description='Passau Data Science Deep Learning Environments',
     author='Chair of Data Science, University of Passau',
     author_email='julian.stier@uni-passau.de',
