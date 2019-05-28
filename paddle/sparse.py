@@ -2,9 +2,33 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
+import networkx as nx
+import paddle.util
+
+
+class MaskedDeepDAN(nn.Module):
+    """
+    A deep directed acyclic network model which is capable of masked layers and masked skip-layer connections.
+    """
+    def __init__(self, input_size, num_classes, structure : nx.DiGraph):
+        super(MaskedDeepDAN, self).__init__()
+
+        layer_index, vertex_by_layer = paddle.util.build_layer_index(structure)
+        layers = [l for l in vertex_by_layer]
+
+        self.layer_first = MaskedLinearLayer(input_size, len(vertex_by_layer[0]))
+        self.layers_main_hidden = nn.ModuleList([MaskedLinearLayer(len(vertex_by_layer[l-1]), len(vertex_by_layer[l])) for l in layers[1:]])
+        self.layer_out = MaskedLinearLayer((len(vertex_by_layer[layers[-1]]), num_classes))
+        self.activation = nn.ReLU()
+
 
 
 class MaskedDeepFFN(nn.Module):
+    """
+    A deep feed-forward network model which is capable of masked layers.
+    Masked layers can represent sparse structures between consecutive layers.
+    This representation is suitable for feed-forward sparse networks, probably with density 0.5 and above per layer.
+    """
     def __init__(self, input_size, num_classes, hidden_layers : list):
         super(MaskedDeepFFN, self).__init__()
         assert len(hidden_layers) > 0
@@ -21,22 +45,30 @@ class MaskedDeepFFN(nn.Module):
         return self.layer_out(out)
 
 
-def prunable_layers(network):
+def maskable_layers(network):
     for child in network.children():
         if type(child) is MaskedLinearLayer:
             yield child
         elif type(child) is nn.ModuleList:
-            for layer in prunable_layers(child):
+            for layer in maskable_layers(child):
                 yield layer
 
 
-def prunable_layers_with_name(network):
+def maskable_layers_with_name(network):
     for name, child in network.named_children():
         if type(child) is MaskedLinearLayer:
             yield name, child
         elif type(child) is nn.ModuleList:
-            for name, layer in prunable_layers_with_name(child):
+            for name, layer in maskable_layers_with_name(child):
                 yield name, layer
+
+
+def prunable_layers(network):
+    return maskable_layers(network)
+
+
+def prunable_layers_with_name(network):
+    return maskable_layers_with_name(network)
 
 
 class MaskedLinearLayer(nn.Linear):

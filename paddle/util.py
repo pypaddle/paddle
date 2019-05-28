@@ -1,24 +1,53 @@
 import os
 import math
 import torch
-from torch.autograd import grad
+import networkx as nx
 import numpy as np
 
-from paddle.pruning import PruningStrategy
-from .paddle import MaskedLinearLayer, prunable_layers_with_name, prunable_layers
+import paddle.pruning
+import paddle.sparse
 
-__all__ = [
-    "generate_hessian_inverse_fc",
-    "edge_cut",
-    "keep_input_layerwise",
-    "get_network_weight_count",
-    "get_filtered_saliency",
-    "get_layer_count",
-    "get_weight_distribution",
-    "set_distributed_saliency",
-    "set_random_saliency",
-    "reset_pruned_network"
-]
+
+def build_layer_index(graph : nx.DiGraph, layer_index=None):
+    """
+
+    :param graph:
+    :type graph igraph.Graph
+    :param layer_index:
+    :return:
+    """
+    if layer_index is None:
+        layer_index = {}
+
+    recursion_call = {'count': 0}
+
+    def get_layer_index(vertex, graph):
+        try:
+            vertex = int(vertex)
+        except TypeError:
+            raise ValueError('You have to pass vertex indices to this function.')
+        # print('get_layer_index(%s, roots, graph)' % vertex)
+        if vertex is None:
+            raise ValueError('Given vertex was none.')
+        if vertex not in layer_index:
+            recursion_call['count'] += 1
+            layer_index[vertex] = max(
+                [get_layer_index(v, graph) for v in nx.algorithms.dag.ancestors(graph, vertex)] + [-1]) + 1
+        return layer_index[vertex]
+
+    for v in graph:
+        get_layer_index(v, graph)
+
+    # print('Recursion call: %s' % recursion_call['count'])
+
+    vertices_by_layer = {}
+    for v in layer_index:
+        idx = layer_index[v]
+        if idx not in vertices_by_layer:
+            vertices_by_layer[idx] = []
+        vertices_by_layer[idx].append(v)
+
+    return layer_index, vertices_by_layer
 
 
 
@@ -62,7 +91,7 @@ def generate_hessian_inverse_fc(layer, hessian_inverse_path, layer_input_train_d
     np.save(hessian_inverse_path, hessian_inverse)
 
 
-def edge_cut(layer, hessian_inverse_path, value, strategy=PruningStrategy.PERCENTAGE):
+def edge_cut(layer, hessian_inverse_path, value, strategy=paddle.pruning.PruningStrategy.PERCENTAGE):
     """
     This function prune weights of biases based on given hessian inverse and cut ratio
     :param hessian_inverse_path:
@@ -86,10 +115,10 @@ def edge_cut(layer, hessian_inverse_path, value, strategy=PruningStrategy.PERCEN
     # gate_b = np.ones([n_hidden_2])
 
     # calculate number of pruneable elements
-    if strategy is PruningStrategy.PERCENTAGE:
+    if strategy is paddle.pruning.PruningStrategy.PERCENTAGE:
         cut_ratio = value / 100  # transfer percentage from full value to floating point
         max_pruned_num = math.floor(layer.get_weight_count() * cut_ratio)
-    elif strategy is PruningStrategy.BUCKET:
+    elif strategy is paddle.pruning.PruningStrategy.BUCKET:
         max_pruned_num = value
     else:
         raise ValueError('Currently not implemented')
@@ -153,9 +182,9 @@ def find_network_threshold(network, value, strategy):
         all_sal += filtered_saliency
 
     # calculate percentile
-    if strategy is PruningStrategy.PERCENTAGE:
+    if strategy is paddle.pruning.PruningStrategy.PERCENTAGE:
         return np.percentile(np.array(all_sal), value)
-    elif strategy is PruningStrategy.ABSOLUTE:
+    elif strategy is paddle.pruning.PruningStrategy.ABSOLUTE:
         # check if there are enough elements to prune
         if value >= len(all_sal):
             return np.argmax(np.array(all_sal)).item() + 1
@@ -163,7 +192,7 @@ def find_network_threshold(network, value, strategy):
             # determine threshold
             index = np.argsort(np.array(all_sal))[value]
             return np.array(all_sal)[index].item()
-    elif strategy is PruningStrategy.BUCKET:
+    elif strategy is paddle.pruning.PruningStrategy.BUCKET:
         sorted_array = np.sort(all_sal)
         sum_array = 0
 
@@ -181,13 +210,13 @@ def find_network_threshold(network, value, strategy):
 
 def set_random_saliency(network):
     # set saliency to random values
-    for layer in prunable_layers(network):
+    for layer in paddle.sparse.prunable_layers(network):
         layer.set_saliency(torch.rand_like(layer.get_weight()) * layer.get_mask())
 
 
 def set_distributed_saliency(network):
     # prune from each layer the according number of elements
-    for layer in prunable_layers(network):
+    for layer in paddle.sparse.prunable_layers(network):
         # calculate standard deviation for the layer
         w = layer.get_weight().data
         st_v = 1 / w.std()
@@ -206,14 +235,14 @@ def get_filtered_saliency(saliency, mask):
 
 def get_layer_count(network):
     i = 0
-    for _ in prunable_layers_with_name(network):
+    for _ in paddle.sparse.prunable_layers_with_name(network):
         i += 1
     return i
 
 
 def get_weight_distribution(network):
     all_weights = []
-    for layer in prunable_layers(network):
+    for layer in paddle.sparse.prunable_layers(network):
         mask = list(layer.get_mask().numpy().flatten())
         weights = list(layer.get_weight().data.numpy().flatten())
 
@@ -228,16 +257,16 @@ def get_weight_distribution(network):
 
 def get_network_weight_count(network):
     total_weights = 0
-    for layer in prunable_layers(network):
+    for layer in paddle.sparse.prunable_layers(network):
         total_weights += layer.get_weight_count()
     return total_weights
 
 
 def reset_pruned_network(network):
-    for layer in prunable_layers(network):
+    for layer in paddle.sparse.prunable_layers(network):
         layer.reset_parameters(keep_mask=True)
 
 
 def keep_input_layerwise(network):
-    for layer in prunable_layers(network):
+    for layer in paddle.sparse.prunable_layers(network):
         layer.keep_layer_input = True
