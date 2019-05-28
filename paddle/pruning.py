@@ -1,10 +1,10 @@
 import torch
-from torch.autograd import grad
 import os
 import numpy as np
 import paddle.util
 import paddle.learning
 import paddle.sparse
+from torch.autograd import grad
 from enum import Enum
 
 
@@ -81,6 +81,7 @@ class PruneNeuralNetMethod:
 #
 # Top-Down Pruning Approaches
 #
+
 def optimal_brain_damage(self, network, percentage):
     """
     Implementation of the optimal brain damage algorithm.
@@ -228,16 +229,16 @@ def prune_network_by_saliency(network, value, strategy=PruningStrategy.PERCENTAG
     th = paddle.util.find_network_threshold(network, value, strategy=strategy)
 
     # set the mask
-    for layer in prunable_layers(network):
+    for layer in paddle.sparse.prunable_layers(network):
         # All deleted weights should be set to zero so they should definetly be less than the threshold since this is
         # positive.
         layer.set_mask(torch.ge(layer.get_saliency(), th).float() * layer.get_mask())
 
 
 def prune_layer_by_saliency(network, value, strategy=PruningStrategy.PERCENTAGE):
-    pre_pruned_weight_count = util.get_network_weight_count(network).item()
+    pre_pruned_weight_count = paddle.util.get_network_weight_count(network).item()
 
-    for layer in prunable_layers(network):
+    for layer in paddle.sparse.prunable_layers(network):
         mask = list(layer.get_mask().abs().numpy().flatten())
         saliency = list(layer.get_saliency().numpy().flatten())
         _, filtered_saliency = zip(

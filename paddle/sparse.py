@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.nn.functional as F
 import networkx as nx
 import paddle.util
+from torch.autograd import Variable
 
 
 class MaskedDeepDAN(nn.Module):
@@ -20,7 +20,6 @@ class MaskedDeepDAN(nn.Module):
         self.layers_main_hidden = nn.ModuleList([MaskedLinearLayer(len(vertex_by_layer[l-1]), len(vertex_by_layer[l])) for l in layers[1:]])
         self.layer_out = MaskedLinearLayer((len(vertex_by_layer[layers[-1]]), num_classes))
         self.activation = nn.ReLU()
-
 
 
 class MaskedDeepFFN(nn.Module):
