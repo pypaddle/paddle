@@ -1,7 +1,7 @@
 import torch
 
 
-def test(test_loader, model):
+def test(test_loader, model, device):
     """
     Test the model on the test data set provided by the test loader.
 
@@ -12,16 +12,19 @@ def test(test_loader, model):
     with torch.no_grad():
         correct = 0
         total = 0
-        for test_images, test_labels in test_loader:
-            test_images = test_images.reshape(-1, 28 * 28)
-            outputs = model(test_images)
+        for test_features, test_labels in test_loader:
+            test_features = test_features.to(device)
+            test_labels = test_labels.to(device)
+            test_features = torch.flatten(test_features, start_dim=1)
+
+            outputs = model(test_features)
             _, predicted = torch.max(outputs.data, 1)
             total += test_labels.size(0)
             correct += (predicted == test_labels).sum().item()
         return 100 * correct / total
 
 
-def train(train_loader, model, optimizer, criterion, percentage=False):
+def train(train_loader, model, optimizer, criterion, device, percentage=False):
     """
     Train the model on the train data set with a loss function and and optimization algorithm.
 
@@ -38,12 +41,14 @@ def train(train_loader, model, optimizer, criterion, percentage=False):
     correct = 0
     total = 0
 
-    for i, (images, labels) in enumerate(train_loader):
-        images = images.reshape(-1, 28 * 28)
+    for i, (features, labels) in enumerate(train_loader):
+        features = features.to(device)
+        labels = labels.to(device)
+        features = torch.flatten(features, start_dim=1)
 
         optimizer.zero_grad()
 
-        outputs = model(images)
+        outputs = model(features)
         loss = criterion(outputs, labels)
         total_loss += loss.item()
 
