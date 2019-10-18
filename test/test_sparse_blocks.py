@@ -11,7 +11,7 @@ from torch.utils.data import SubsetRandomSampler
 from torchvision import datasets, transforms
 
 from paddle.learning import train, test
-from paddle.sparse import FiveWaySparseBlockNet
+from paddle.deprecated import FiveWaySparseBlockNet
 
 
 class SparseBlocksTest(unittest.TestCase):

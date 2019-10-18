@@ -1,6 +1,7 @@
 import os
 import math
 import torch
+import torch.nn as nn
 import networkx as nx
 import numpy as np
 
@@ -213,6 +214,9 @@ def set_random_saliency(network):
     for layer in paddle.sparse.prunable_layers(network):
         layer.set_saliency(torch.rand_like(layer.get_weight()) * layer.get_mask())
 
+def set_random_masks(module : nn.Module):
+    if isinstance(module, paddle.sparse.MaskedLinearLayer):
+        module.set_mask(torch.round(torch.rand_like(module.get_weight())))
 
 def set_distributed_saliency(network):
     # prune from each layer the according number of elements

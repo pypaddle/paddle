@@ -84,35 +84,18 @@ class MaskedLinearLayer(nn.Linear):
         :param in_feature:          The number of features that are inserted in the layer.
         :param out_features:        The number of features that are returned by the layer.
         :param bias:                Iff each neuron in the layer should have a bias unit as well.
-        :param keep_layer_input:    Iff the Mask should also store the layer input for further calculations. This is
-                                    needed by
         """
         super().__init__(in_feature, out_features, bias)
-        # create a mask of ones for all weights (no element pruned at beginning)
-        self.mask = Variable(torch.ones(self.weight.size()))
-        self.saliency = None
+
+        self.register_buffer('mask', torch.ones((out_features, in_feature), dtype=torch.bool))
         self.keep_layer_input = keep_layer_input
         self.layer_input = None
-
-    def get_saliency(self):
-        if self.saliency is None:
-            return self.weight.data.abs()
-        else:
-            return self.saliency
-
-    def set_saliency(self, sal):
-        if not sal.size() == self.weight.size():
-            raise ValueError('mask must have same size as weight matrix')
-
-        self.saliency = sal
 
     def get_mask(self):
         return self.mask
 
-    def set_mask(self, mask=None):
-        if mask is not None:
-            self.mask = Variable(mask)
-        self.weight.data = self.weight.data * self.mask.data
+    def set_mask(self, mask):
+        self.mask = Variable(mask)
 
     def get_weight_count(self):
         return self.mask.sum()
@@ -122,69 +105,16 @@ class MaskedLinearLayer(nn.Linear):
 
     def reset_parameters(self, keep_mask=False):
         super().reset_parameters()
-        if not keep_mask:
-            self.mask = Variable(torch.ones(self.weight.size()))
-            self.saliency = None
+        # hasattr() is necessary because reset_parameters() is called in __init__ of Linear(), but buffer 'mask'
+        # may only be registered after super() call, thus 'mask' might not be defined as buffer / attribute, yet
+        if hasattr(self, 'mask') and not keep_mask:
+            self.mask = torch.ones(self.weight.size(), dtype=torch.bool)
 
     def forward(self, x):
-        # eventually store the layer input
+        # Possibly store the layer input
         if self.keep_layer_input:
             self.layer_input = x.data
         weight = self.weight.mul(self.mask)
         return F.linear(x, weight, self.bias)
 
-    def cuda(self, device=None):
-        super().cuda(device)
-        self.mask = self.mask.cuda(device)
-        return self
 
-    def to(self, *args, **kwargs):
-        super().to(*args, **kwargs)
-        self.mask = self.mask.to(*args, **kwargs)
-        return self
-
-
-class LinearBlockUnit(nn.Module):
-    def __init__(self, input_size, output_size, stride=1):
-        super(LinearBlockUnit, self).__init__()
-        self.act = nn.ReLU()
-        #self.conv = nn.Conv2d(1, 10, kernel_size=3, stride=stride, padding=1)
-        self.linear = nn.Linear(input_size, output_size)
-        self.bn = nn.BatchNorm1d(output_size)
-
-    def forward(self, x):
-        out = self.act(x)
-        out = self.linear(out)
-        out = self.bn(out)
-        return out
-
-class FiveWaySparseBlockNet(nn.Module):
-    def __init__(self, input_size, output_classes, hidden_block_size=100):
-        super(FiveWaySparseBlockNet, self).__init__()
-
-        self.input_blocks = nn.ModuleList()
-        for _ in range(5):
-            self.input_blocks.append(LinearBlockUnit(input_size, hidden_block_size))
-
-        self.hidden_blocks = nn.ModuleList()
-        for _ in range(5):
-            self.hidden_blocks.append(LinearBlockUnit(hidden_block_size, hidden_block_size))
-
-        self.output_blocks = nn.ModuleList()
-        for _ in range(5):
-            self.output_blocks.append(LinearBlockUnit(hidden_block_size, output_classes))
-
-    def forward(self, x):
-        input_to_blocks = {}
-        for idx, block_unit in enumerate(self.input_blocks):
-            input_to_blocks[idx] = block_unit(x)
-
-        hidden_block_results = {}
-        for idx, block_unit in enumerate(self.hidden_blocks):
-            hidden_block_results[idx] = block_unit(input_to_blocks[idx])
-
-        output_blocks = []
-        for idx, block_unit in enumerate(self.output_blocks):
-            output_blocks.append(block_unit(hidden_block_results[idx]))
-
-        return torch.mean(torch.stack(output_blocks), dim=0)
