@@ -200,6 +200,14 @@ class MaskedDeepDAN(nn.Module):
         self.layer_first = MaskedLinearLayer(input_size, structure.first_layer_size)
         self.layers_main_hidden = nn.ModuleList([MaskedLinearLayer(structure.get_layer_size(l-1), structure.get_layer_size(l)) for l in structure.layers[1:]])
 
+        for layer_idx, layer in zip(structure.layers[1:], self.layers_main_hidden):
+            mask = torch.zeros(structure.get_layer_size(layer_idx), structure.get_layer_size(layer_idx-1))
+            for source_idx, source_vertex in enumerate(structure.get_vertices(layer_idx-1)):
+                for target_idx, target_vertex in enumerate(structure.get_vertices(layer_idx)):
+                    if structure.has_edge(source_vertex, target_vertex):
+                        mask[target_idx][source_idx] = 1
+            layer.set_mask(mask)
+
         skip_layers = []
         self._skip_targets = {}
         for target_layer in structure.layers[2:]:
@@ -208,8 +216,15 @@ class MaskedDeepDAN(nn.Module):
                 if structure.layer_connected(distant_source_layer, target_layer):
                     if target_layer not in self._skip_targets:
                         self._skip_targets[target_layer] = []
-                    #print('Layer %s is connected to %s' % (distant_source_layer, target_layer))
+
                     skip_layer = MaskedLinearLayer(structure.get_layer_size(distant_source_layer), target_size)
+                    mask = torch.zeros(structure.get_layer_size(target_layer), structure.get_layer_size(distant_source_layer))
+                    for source_idx, source_vertex in enumerate(structure.get_vertices(distant_source_layer)):
+                        for target_idx, target_vertex in enumerate(structure.get_vertices(target_layer)):
+                            if structure.has_edge(source_vertex, target_vertex):
+                                mask[target_idx][source_idx] = 1
+                    skip_layer.set_mask(mask)
+
                     skip_layers.append(skip_layer)
                     self._skip_targets[target_layer].append({'layer': skip_layer, 'source': distant_source_layer})
         self.layers_skip_hidden = nn.ModuleList(skip_layers)
