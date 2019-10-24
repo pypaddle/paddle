@@ -18,7 +18,7 @@ class MaskedLinearLayerTest(unittest.TestCase):
 
         layer.set_mask(mask)
 
-        self.assertTrue(np.all(np.equal(mask, layer.mask)))
+        self.assertTrue(np.all(np.equal(np.array(mask), np.array(layer.mask))))
 
     def test_parameter_reset_success(self):
         # Arrange - initialize a masked layer and randomize its mask

@@ -51,17 +51,11 @@ class MaskedDeepDANTest(unittest.TestCase):
         for v in block2:
             for t in block5:
                 structure.add_edge(v, t)
-        for v in block2:
-            for t in block6:
-                structure.add_edge(v, t)
         for v in block3:
             for t in block5:
                 structure.add_edge(v, t)
         for v in block3:
             for t in block6:
-                structure.add_edge(v, t)
-        for v in block4:
-            for t in block5:
                 structure.add_edge(v, t)
         for v in block4:
             for t in block6:
@@ -72,7 +66,7 @@ class MaskedDeepDANTest(unittest.TestCase):
 
 
         batch_size = 100
-        epochs = 100
+        epochs = 2
 
         """
         MNIST

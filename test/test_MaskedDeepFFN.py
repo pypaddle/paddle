@@ -15,7 +15,6 @@ class MaskedLinearLayerTest(unittest.TestCase):
         model = paddle.sparse.MaskedDeepFFN(784, 10, [200, 100, 50])
 
         batch_size = 100
-        epochs = 100
 
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         # Assuming that we are on a CUDA machine, this should print a CUDA device:
@@ -51,7 +50,7 @@ class MaskedLinearLayerTest(unittest.TestCase):
 
         model.to(device)
 
-        for epoch in range(10):
+        for epoch in range(2):
             print(train(mnist_train_loader, model, optimizer, loss_func, device, percentage=True))
 
         print(test(mnist_test_loader, model, device))
