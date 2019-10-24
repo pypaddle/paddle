@@ -234,7 +234,7 @@ class MaskedDeepDAN(nn.Module):
 
     def forward(self, x):
         last_output = self.activation(self.layer_first(x))
-        layer_results = {}
+        layer_results = {0: last_output}
         for layer, layer_idx in zip(self.layers_main_hidden, self._structure.layers[1:]):
             out = self.activation(layer(last_output))
 
