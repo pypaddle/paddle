@@ -9,6 +9,8 @@ def test(test_loader, model, device):
     :param model:           The model that should be tested
     :return: The percentage of correctly classified samples from the data set.
     """
+    model.eval()
+
     with torch.no_grad():
         correct = 0
         total = 0

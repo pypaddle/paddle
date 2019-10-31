@@ -123,7 +123,7 @@ class CachedLayeredGraph(LayeredGraph):
 
     @property
     def num_layers(self):
-        return len(self._get_layer_index()[0].keys())
+        return len(self.layers)
 
     @property
     def first_layer_size(self):
@@ -232,6 +232,16 @@ class MaskedDeepDAN(nn.Module):
         self.layer_out = MaskedLinearLayer(structure.last_layer_size, num_classes)
         self.activation = nn.ReLU()
 
+    def apply_mask(self):
+        map(lambda l: l.apply_mask(), self.layer_first, self.layers_main_hidden, self.layers_skip_hidden, self.layer_out)
+
+    def recompute_mask(self):
+        map(lambda l: l.recompute_mask(), self.layer_first, self.layers_main_hidden, self.layers_skip_hidden, self.layer_out)
+
+    def get_structure(self):
+        raise NotImplementedError()
+        pass
+
     def forward(self, x):
         last_output = self.activation(self.layer_first(x))
         layer_results = {0: last_output}
@@ -265,6 +275,29 @@ class MaskedDeepFFN(nn.Module):
         self.layers_hidden = nn.ModuleList([MaskedLinearLayer(hidden_layers[l], h) for l, h in enumerate(hidden_layers[1:])])
         self.layer_out = MaskedLinearLayer(hidden_layers[-1], num_classes)
         self.activation = nn.ReLU()
+
+    def get_structure(self, include_input=False, include_output=False):
+        structure = CachedLayeredGraph()
+
+        def add_edges(structure, layer, offset_source):
+            offset_target = offset_source + layer.mask.shape[1]
+            for source_node_idx, source_node in enumerate(range(layer.mask.shape[1])):
+                for target_node_idx, target_node in enumerate(range(layer.mask.shape[0])):
+                    if layer.mask[target_node_idx][source_node_idx]:
+                        structure.add_edge(offset_source + source_node, offset_target + target_node)
+            return offset_target
+
+        offset_source = 0
+        if include_input:
+            offset_source = add_edges(structure, self.layer_first, 0)
+
+        for layer in self.layers_hidden:
+            offset_source = add_edges(structure, layer, offset_source)
+
+        if include_output:
+            add_edges(structure, self.layer_out, offset_source)
+
+        return structure
 
     def forward(self, x):
         out = self.activation(self.layer_first(x))
@@ -328,6 +361,19 @@ class MaskedLinearLayer(nn.Linear):
 
     def get_weight_count(self):
         return self.mask.sum()
+
+    def apply_mask(self):
+        self.weight = self.weight.mul(self.mask)
+
+    def recompute_mask(self, epsilon: float = 0.001):
+        """
+        Recomputes the mask based on the weight magnitudes.
+        If you want to consider the existing mask, make sure to first call apply_mask() and then recompute it.
+
+        :param epsilon: Specifies a possible threshold for absolute distance to zero.
+        """
+        self.mask = torch.ones(self.weight.shape, dtype=torch.bool)
+        self.mask[torch.where(abs(self.weight) < epsilon)] = False
 
     def get_weight(self):
         return self.weight
