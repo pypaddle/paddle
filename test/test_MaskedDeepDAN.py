@@ -13,6 +13,13 @@ from torchvision import datasets, transforms
 
 
 class MaskedDeepDANTest(unittest.TestCase):
+    def test_get_structure(self):
+        initial_structure = paddle.sparse.CachedLayeredGraph()
+        initial_structure.add_nodes_from(np.arange(100))
+        model = paddle.sparse.MaskedDeepDAN(784, 10, initial_structure)
+
+        structure = model.get_structure(include_input=True, include_output=True)
+        print(structure)
 
     def test_dev(self):
         structure = paddle.sparse.CachedLayeredGraph()

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import networkx as nx
+import numpy as np
 import paddle.util
 from torch.autograd import Variable
 
@@ -238,9 +239,43 @@ class MaskedDeepDAN(nn.Module):
     def recompute_mask(self):
         map(lambda l: l.recompute_mask(), self.layer_first, self.layers_main_hidden, self.layers_skip_hidden, self.layer_out)
 
-    def get_structure(self):
-        raise NotImplementedError()
-        pass
+    def get_structure(self, include_input=False, include_output=False):
+        structure = CachedLayeredGraph()
+
+        node_number_offset = 0
+        nodes_by_layer = {}  # nodes numbers for each layer
+
+        if include_input:
+            number_input_neurons = self.layer_first.mask.shape[1]
+            nodes_by_layer[0] = np.arange(number_input_neurons)
+            structure.add_nodes_from(nodes_by_layer[0])
+            node_number_offset += number_input_neurons
+
+            target_nodes = []
+            for target_node_idx in range(self.layer_first.mask.shape[0]):
+                for source_node_idx in range(self.layer_first.mask.shape[1]):
+                    if self.layer_first.mask[target_node_idx][source_node_idx]:
+                        target_node = node_number_offset + target_node_idx
+                        target_nodes.append(target_node)
+                        structure.add_edge(source_node_idx, target_node)
+            nodes_by_layer[1] = target_nodes
+            node_number_offset += len(target_nodes)
+        else:
+            nodes_by_layer[0] = np.arange(self.layer_first.mask.shape[0])
+            structure.add_nodes_from(nodes_by_layer[0])
+            node_number_offset += self.layer_first.mask.shape[0]
+
+        # Main hidden layers
+        for layer in self.layers_main_hidden:
+            source_node_numbers = nodes_by_layer[-1]
+
+            for source_node_idx in range(layer.mask.shape[1]):
+                for target_node_idx in range(layer.mask.shape[0]):
+                    if layer.mask[target_node_idx][source_node_idx]:
+                        pass
+
+    # TODO
+    pass
 
     def forward(self, x):
         last_output = self.activation(self.layer_first(x))
