@@ -270,12 +270,18 @@ class MaskedDeepDAN(nn.Module):
         for target_layer_idx in self._skip_targets:
             for target in self._skip_targets[target_layer_idx]:
                 source_layer = target['layer']
-                source_layer_idx = target['source']+1
-                target_layer_idx = target_layer_idx+1
+                source_layer_idx = target['source'] + 1
+                target_layer_idx = target_layer_idx + 1
 
                 source_idx2node = layer_nodeidx2node[source_layer_idx]
                 target_idx2node = layer_nodeidx2node[target_layer_idx]
 
+
+                print('source_layer_idx', source_layer_idx)
+                print('target_layer_idx', target_layer_idx)
+                print('Mask shape', source_layer.mask.shape)
+                for l in layer_nodeidx2node:
+                    print('\tl = ', l, 'len =', len(layer_nodeidx2node[l]), 'values =', layer_nodeidx2node[l])
                 """print('layer_nodeidx2node', layer_nodeidx2node)
                 print('target_layer_idx', target_layer_idx)
                 print('source_layer_idx', source_layer_idx)

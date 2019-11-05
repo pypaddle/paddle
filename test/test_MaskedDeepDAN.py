@@ -2,9 +2,21 @@ import unittest
 import numpy as np
 import paddle.util
 import paddle.sparse
+import networkx as nx
 
 
 class MaskedDeepDANTest(unittest.TestCase):
+    def test_random_structures(self):
+        random_graph = nx.watts_strogatz_graph(100, 3, 0.8)
+
+        structure = paddle.sparse.CachedLayeredGraph()
+        structure.add_edges_from(random_graph.edges)
+        structure.add_nodes_from(random_graph.nodes)
+
+        model = paddle.sparse.MaskedDeepDAN(784, 10, structure)
+
+        new_model = paddle.sparse.MaskedDeepDAN(784, 10, model.generate_structure())
+
     def test_get_structure(self):
         structure = paddle.sparse.CachedLayeredGraph()
 
