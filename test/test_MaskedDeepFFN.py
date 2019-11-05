@@ -13,7 +13,7 @@ from paddle.learning import train, test
 class MaskedLinearLayerTest(unittest.TestCase):
     def test_get_structure(self):
         model = paddle.sparse.MaskedDeepFFN(784, 10, [20, 15, 12])
-        structure = model.get_structure(include_input=True, include_output=True)
+        structure = model.generate_structure(include_input=True, include_output=True)
         print(structure)
         # TODO
 
