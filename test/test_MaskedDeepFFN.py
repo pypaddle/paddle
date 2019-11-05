@@ -1,13 +1,7 @@
 import torch
 import torch.utils
-import torch.nn as nn
-import numpy as np
 import unittest
 import paddle.sparse
-
-from torchvision import datasets, transforms
-
-from paddle.learning import train, test
 
 
 class MaskedLinearLayerTest(unittest.TestCase):

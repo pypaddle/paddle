@@ -1,16 +1,7 @@
 import unittest
-import networkx as nx
 import numpy as np
 import paddle.util
 import paddle.sparse
-
-import matplotlib.pyplot as plt
-import torch
-import torch.utils
-import torch.nn as nn
-from paddle.learning import train, test
-from torch.utils.data import SubsetRandomSampler
-from torchvision import datasets, transforms
 
 
 class MaskedDeepDANTest(unittest.TestCase):

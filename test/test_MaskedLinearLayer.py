@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-import torch.nn as nn
 import unittest
 import paddle.sparse
 import paddle.util
