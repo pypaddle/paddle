@@ -4,10 +4,9 @@ import paddle.util
 import paddle.sparse
 import networkx as nx
 
-
 class MaskedDeepDANTest(unittest.TestCase):
     def test_random_structures(self):
-        random_graph = nx.watts_strogatz_graph(100, 3, 0.8)
+        random_graph = nx.watts_strogatz_graph(200, 3, 0.8)
 
         structure = paddle.sparse.CachedLayeredGraph()
         structure.add_edges_from(random_graph.edges)
@@ -15,7 +14,18 @@ class MaskedDeepDANTest(unittest.TestCase):
 
         model = paddle.sparse.MaskedDeepDAN(784, 10, structure)
 
-        new_model = paddle.sparse.MaskedDeepDAN(784, 10, model.generate_structure())
+        extracted_structure = model.generate_structure()
+        new_model = paddle.sparse.MaskedDeepDAN(784, 10, extracted_structure)
+
+        """print('Drawing ..')
+        nx.draw(structure)
+        plt.show()
+        nx.draw(extracted_structure)
+        plt.show()"""
+
+        #self.assertTrue(nx.algorithms.isomorphism.faster_could_be_isomorphic(structure, extracted_structure))
+        self.assertTrue(nx.is_isomorphic(structure, extracted_structure))
+        self.assertTrue(nx.is_isomorphic(structure, new_model.generate_structure()))
 
     def test_get_structure(self):
         structure = paddle.sparse.CachedLayeredGraph()
