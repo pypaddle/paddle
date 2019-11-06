@@ -242,10 +242,25 @@ class MaskedDeepDAN(nn.Module):
     def generate_structure(self, include_input=False, include_output=False):
         structure = CachedLayeredGraph()
 
-        # Main hidden layers
         node_number_offset = 0
         layer_nodeidx2node = {}
+
+        if include_input:
+            layer = self.layer_first
+            layer_nodeidx2node[0] = {node_idx: node for node_idx, node in enumerate(np.arange(node_number_offset, node_number_offset + layer.mask.shape[1]))}
+            node_number_offset += layer.mask.shape[1]
+            structure.add_nodes_from(layer_nodeidx2node[0].values())
+
+            for source_node_idx in range(layer.mask.shape[1]):
+                source_node = layer_nodeidx2node[0][source_node_idx]
+                for target_node_idx in range(layer.mask.shape[0]):
+                    if layer.mask[target_node_idx][source_node_idx]:
+                        target_node = layer_nodeidx2node[1][target_node_idx]
+                        structure.add_edge(source_node, target_node)
+
+        # Main hidden layers
         for source_layer_idx, layer in enumerate(self.layers_main_hidden, start=1):
+            #print('Layer', source_layer_idx, layer.mask.shape)
             if source_layer_idx not in layer_nodeidx2node:
                 layer_nodeidx2node[source_layer_idx] = {node_idx: node for node_idx, node in enumerate(np.arange(node_number_offset, node_number_offset + layer.mask.shape[1]))}
                 node_number_offset += layer.mask.shape[1]
@@ -267,21 +282,30 @@ class MaskedDeepDAN(nn.Module):
                         structure.add_edge(source_node, target_node)
 
         # Skip layers
-        for target_layer_idx in self._skip_targets:
-            for target in self._skip_targets[target_layer_idx]:
+        for target_idx in self._skip_targets:
+            for target in self._skip_targets[target_idx]:
                 source_layer = target['layer']
+                # We have to shift target layer index as layer_nodeidx2node is indexed differently
+                target_layer_idx = target_idx + 1
+                # Also shift the source layer index by one as we indexed layer_nodeidx2node differently
                 source_layer_idx = target['source'] + 1
-                target_layer_idx = target_layer_idx + 1
+
+                if source_layer_idx not in layer_nodeidx2node:
+                    # Possibly the source layer (e.g. input layer) was left out, so skip connections from it can not be
+                    # considered
+                    continue
 
                 source_idx2node = layer_nodeidx2node[source_layer_idx]
                 target_idx2node = layer_nodeidx2node[target_layer_idx]
 
 
-                print('source_layer_idx', source_layer_idx)
+                """print('source_layer_idx', source_layer_idx)
+                print('len(l =', source_layer_idx, ') would be', len(layer_nodeidx2node[source_layer_idx]))
                 print('target_layer_idx', target_layer_idx)
+                print('len(l =', target_layer_idx, ') would be', len(layer_nodeidx2node[target_layer_idx]))
                 print('Mask shape', source_layer.mask.shape)
                 for l in layer_nodeidx2node:
-                    print('\tl = ', l, 'len =', len(layer_nodeidx2node[l]), 'values =', layer_nodeidx2node[l])
+                    print('\tl = ', l, 'len =', len(layer_nodeidx2node[l]), 'values =', layer_nodeidx2node[l])"""
                 """print('layer_nodeidx2node', layer_nodeidx2node)
                 print('target_layer_idx', target_layer_idx)
                 print('source_layer_idx', source_layer_idx)
@@ -294,19 +318,6 @@ class MaskedDeepDAN(nn.Module):
                         if source_layer.mask[target_node_idx][source_node_idx]:
                             target_node = target_idx2node[target_node_idx]
                             structure.add_edge(source_node, target_node)
-
-        if include_input:
-            layer = self.layer_first
-            layer_nodeidx2node[0] = {node_idx: node for node_idx, node in enumerate(np.arange(node_number_offset, node_number_offset + layer.mask.shape[1]))}
-            node_number_offset += layer.mask.shape[1]
-            structure.add_nodes_from(layer_nodeidx2node[0].values())
-
-            for source_node_idx in range(layer.mask.shape[1]):
-                source_node = layer_nodeidx2node[0][source_node_idx]
-                for target_node_idx in range(layer.mask.shape[0]):
-                    if layer.mask[target_node_idx][source_node_idx]:
-                        target_node = layer_nodeidx2node[1][target_node_idx]
-                        structure.add_edge(source_node, target_node)
 
         if include_output:
             layer = self.layer_out
