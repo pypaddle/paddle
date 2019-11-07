@@ -466,7 +466,9 @@ class MaskedLinearLayer(nn.Linear):
         return self.mask.sum()
 
     def apply_mask(self):
-        self.weight = torch.nn.Parameter(self.weight.mul(self.mask))
+        # Assigning "self.weight = torch.nn.Parameter(self.weight.mul(self.mask))" might have side effects
+        # Using direct manipulation on tensor "self.weight.data"
+        self.weight.data = self.weight * self.mask
 
     def recompute_mask(self, epsilon: float = 0.001):
         """
@@ -475,7 +477,7 @@ class MaskedLinearLayer(nn.Linear):
 
         :param epsilon: Specifies a possible threshold for absolute distance to zero.
         """
-        self.mask = torch.ones(self.weight.shape, dtype=torch.bool)
+        self.mask = torch.ones(self.weight.shape, dtype=torch.bool, device=self.mask.device)
         self.mask[torch.where(abs(self.weight) < epsilon)] = False
 
     def get_weight(self):
@@ -492,7 +494,6 @@ class MaskedLinearLayer(nn.Linear):
         # Possibly store the layer input
         if self.keep_layer_input:
             self.layer_input = x.data
-        weight = self.weight.mul(self.mask)
-        return F.linear(x, weight, self.bias)
+        return F.linear(x, self.weight * self.mask, self.bias)
 
 
