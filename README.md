@@ -1,3 +1,12 @@
+# Paddle - Passau Data Science Deep Learning Environments
+**Paddle** is a working title for tools for experimenting with sparse structures of artificial neural networks.
+It fuses graph theory / network science and artificial neural networks. 
+
+## Install from private repository
+```bash
+pip install --upgrade git+ssh://git@gitlab.padim.fim.uni-passau.de:13003/paddle/paddle.git
+```
+
 ## Sparse Neural Network implementations
 ```python
 import paddle.sparse
@@ -9,7 +18,9 @@ structure  = paddle.sparse.CachedLayeredGraph()
 model = paddle.sparse.MaskedDeepDAN(784, 10, structure)
 model.apply_mask()  # Apply the mask on the weights (hard, not undoable)
 model.recompute_mask()  # Use weight magnitude to recompute the mask from the network
-model.generate_structure()  # Get the structure -- a networkx graph -- based on the current mask
+pruned_structure = model.generate_structure()  # Get the structure -- a networkx graph -- based on the current mask
+
+new_model = paddle.sparse.MaskedDeepDAN(784, 10, pruned_structure)
 ```
 ```python
 import paddle.sparse
@@ -18,20 +29,6 @@ model = paddle.sparse.MaskedDeepFFN(784, 10, [100, 100])
 # .. train model
 model.generate_structure()  # a networkx graph
 ``` 
-
-
-# Paddle - Passau Data Science Deep Learning Environments
-**Paddle** is in progress and will merge acquired knowledge from PADDLL library, kayak and several jupyter notebooks into one standard library for wrapping tensorflow/pytorch implementations for Sparse Neural Network and Neuroevolution computations.
-
-# Usage
-## Install from private repository
-```bash
-pip install --upgrade git+ssh://git@gitlab.padim.fim.uni-passau.de:13003/paddle/paddle.git
-```
-
-
-## Training
-..
 
 
 # Development
