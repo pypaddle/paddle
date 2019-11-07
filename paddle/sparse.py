@@ -234,10 +234,20 @@ class MaskedDeepDAN(nn.Module):
         self.activation = nn.ReLU()
 
     def apply_mask(self):
-        map(lambda l: l.apply_mask(), self.layer_first, self.layers_main_hidden, self.layers_skip_hidden, self.layer_out)
+        self.layer_first.apply_mask()
+        for layer in self.layers_main_hidden:
+            layer.apply_mask()
+        for layer in self.layers_skip_hidden:
+            layer.apply_mask()
+        self.layer_out.apply_mask()
 
     def recompute_mask(self):
-        map(lambda l: l.recompute_mask(), self.layer_first, self.layers_main_hidden, self.layers_skip_hidden, self.layer_out)
+        self.layer_first.recompute_mask()
+        for layer in self.layers_main_hidden:
+            layer.recompute_mask()
+        for layer in self.layers_skip_hidden:
+            layer.recompute_mask()
+        self.layer_out.recompute_mask()
 
     def generate_structure(self, include_input=False, include_output=False):
         structure = CachedLayeredGraph()
@@ -456,7 +466,7 @@ class MaskedLinearLayer(nn.Linear):
         return self.mask.sum()
 
     def apply_mask(self):
-        self.weight = self.weight.mul(self.mask)
+        self.weight = torch.nn.Parameter(self.weight.mul(self.mask))
 
     def recompute_mask(self, epsilon: float = 0.001):
         """

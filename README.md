@@ -9,14 +9,14 @@ structure  = paddle.sparse.CachedLayeredGraph()
 model = paddle.sparse.MaskedDeepDAN(784, 10, structure)
 model.apply_mask()  # Apply the mask on the weights (hard, not undoable)
 model.recompute_mask()  # Use weight magnitude to recompute the mask from the network
-model.get_structure()  # Get the structure -- a networkx graph -- based on the current mask
+model.generate_structure()  # Get the structure -- a networkx graph -- based on the current mask
 ```
 ```python
 import paddle.sparse
 
 model = paddle.sparse.MaskedDeepFFN(784, 10, [100, 100])
 # .. train model
-model.get_structure()  # a networkx graph
+model.generate_structure()  # a networkx graph
 ``` 
 
 

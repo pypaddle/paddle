@@ -14,4 +14,4 @@ tensorboard/
 # IDE-specific files
 .idea/
 *.iml
-
+.ipynb_checkpoints/

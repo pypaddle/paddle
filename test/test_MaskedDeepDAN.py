@@ -5,27 +5,41 @@ import paddle.sparse
 import networkx as nx
 
 class MaskedDeepDANTest(unittest.TestCase):
-    def test_random_structures(self):
+    def test_random_structures_success(self):
+        # Arrange
         random_graph = nx.watts_strogatz_graph(200, 3, 0.8)
-
         structure = paddle.sparse.CachedLayeredGraph()
         structure.add_edges_from(random_graph.edges)
         structure.add_nodes_from(random_graph.nodes)
-
         model = paddle.sparse.MaskedDeepDAN(784, 10, structure)
 
+        # Act
         extracted_structure = model.generate_structure()
         new_model = paddle.sparse.MaskedDeepDAN(784, 10, extracted_structure)
 
-        """print('Drawing ..')
-        nx.draw(structure)
-        plt.show()
-        nx.draw(extracted_structure)
-        plt.show()"""
-
+        # Assert
         #self.assertTrue(nx.algorithms.isomorphism.faster_could_be_isomorphic(structure, extracted_structure))
         self.assertTrue(nx.is_isomorphic(structure, extracted_structure))
         self.assertTrue(nx.is_isomorphic(structure, new_model.generate_structure()))
+
+    def test_apply_mask_success(self):
+        random_graph = nx.watts_strogatz_graph(200, 3, 0.8)
+        structure = paddle.sparse.CachedLayeredGraph()
+        structure.add_edges_from(random_graph.edges)
+        structure.add_nodes_from(random_graph.nodes)
+        model = paddle.sparse.MaskedDeepDAN(784, 10, structure)
+
+        previous_weights = []
+        for layer in paddle.sparse.maskable_layers(model):
+            previous_weights.append(np.copy(layer.weight.detach().numpy()))
+
+        model.apply_mask()
+
+        different = []
+        for layer, previous_weight in zip(paddle.sparse.maskable_layers(model), previous_weights):
+            different.append(not np.all(np.equal(np.array(previous_weight), np.array(layer.weight.detach().numpy()))))
+        self.assertTrue(np.any(different))
+
 
     def test_get_structure(self):
         structure = paddle.sparse.CachedLayeredGraph()
