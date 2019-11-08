@@ -22,6 +22,18 @@ class MaskedDeepDANTest(unittest.TestCase):
         self.assertTrue(nx.is_isomorphic(structure, extracted_structure))
         self.assertTrue(nx.is_isomorphic(structure, new_model.generate_structure()))
 
+    def test_random_structures_with_input_and_output_success(self):
+        # Arrange
+        random_graph = nx.watts_strogatz_graph(200, 3, 0.8)
+        structure = paddle.sparse.CachedLayeredGraph()
+        structure.add_edges_from(random_graph.edges)
+        structure.add_nodes_from(random_graph.nodes)
+        model = paddle.sparse.MaskedDeepDAN(784, 10, structure)
+
+        # Act
+        extracted_structure = model.generate_structure(include_input=True, include_output=True)
+        new_model = paddle.sparse.MaskedDeepDAN(784, 10, extracted_structure)
+
     def test_apply_mask_success(self):
         random_graph = nx.watts_strogatz_graph(200, 3, 0.8)
         structure = paddle.sparse.CachedLayeredGraph()

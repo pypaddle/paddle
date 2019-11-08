@@ -263,6 +263,11 @@ class MaskedDeepDAN(nn.Module):
 
             for source_node_idx in range(layer.mask.shape[1]):
                 source_node = layer_nodeidx2node[0][source_node_idx]
+
+                layer_nodeidx2node[1] = {node_idx: node for node_idx, node in enumerate(np.arange(node_number_offset, node_number_offset + layer.mask.shape[0]))}
+                node_number_offset += layer.mask.shape[0]
+                structure.add_nodes_from(layer_nodeidx2node[1].values())
+
                 for target_node_idx in range(layer.mask.shape[0]):
                     if layer.mask[target_node_idx][source_node_idx]:
                         target_node = layer_nodeidx2node[1][target_node_idx]
