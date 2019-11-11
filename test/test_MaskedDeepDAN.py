@@ -5,6 +5,15 @@ import paddle.sparse
 import networkx as nx
 
 class MaskedDeepDANTest(unittest.TestCase):
+    def test_traversal(self):
+        # Arrange
+        random_graph = nx.watts_strogatz_graph(200, 3, 0.8)
+        structure = paddle.sparse.CachedLayeredGraph()
+        structure.add_edges_from(random_graph.edges)
+        structure.add_nodes_from(random_graph.nodes)
+
+        print([structure.in_degree(n) for n in structure.nodes])
+
     def test_random_structures_success(self):
         # Arrange
         random_graph = nx.watts_strogatz_graph(200, 3, 0.8)
