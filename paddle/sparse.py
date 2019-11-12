@@ -1,5 +1,3 @@
-from collections import deque
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,7 +5,6 @@ import networkx as nx
 import numpy as np
 import paddle.util
 from torch.autograd import Variable
-from typing import Callable
 
 
 class LayeredGraph(nx.DiGraph):
@@ -214,17 +211,12 @@ class CachedLayeredGraph(LayeredGraph):
         return size
 
 
-cell_constructor_func: Callable[[bool, bool, int, int, int], nn.Module] = lambda is_input, is_output, in_degree, out_degree, layer: nn.Conv2d(10, 10, 1)
-layer_channel_size_func: Callable[[int], int] = lambda layer: 10
-
-
-class DeepDACellNetwork(nn.Module):
-    def __init__(self, num_classes, cell_constructor: cell_constructor_func, layer_channel_size: layer_channel_size_func, structure: LayeredGraph):
-        super(DeepDACellNetwork, self).__init__()
+class DeepCellDAN(nn.Module):
+    def __init__(self, num_classes, input_channel_size, cell_constructor, structure: LayeredGraph):
+        super(DeepCellDAN, self).__init__()
 
         self._structure = structure
         assert structure.num_layers > 0
-        self._layer_channel_size = layer_channel_size
 
         self._input_nodes = [n for n in structure.nodes if structure.in_degree(n) == 0]
         self._output_nodes = [n for n in structure.nodes if structure.out_degree(n) == 0]
@@ -242,89 +234,6 @@ class DeepDACellNetwork(nn.Module):
             for node in self._structure.nodes
         }
         self._nodes = nn.ModuleList(list(self._node_cells.values()))
-
-        self._node_maps = {}
-        self._node_maps_list = []
-        for source_layer in self._structure.layers[:-1]:
-            self._node_maps[source_layer] = {}
-            source_output_channel_size = self._layer_channel_size(source_layer+1)
-            for target_layer in self._structure.layers[min(source_layer+2, self._structure.last_layer-1):]:
-                target_channel_size = self._layer_channel_size(target_layer)
-                if source_output_channel_size is not target_channel_size:
-                    """print('Source layer', source_layer)
-                    print('Target layer', target_layer)
-                    print('Source out channel', source_output_channel_size)
-                    print('Target in channel', target_channel_size)"""
-                    self._node_maps[source_layer][target_layer] = nn.Conv2d(source_output_channel_size, target_channel_size, kernel_size=1)
-                    self._node_maps_list.append(self._node_maps[source_layer][target_layer])
-        self._maps = nn.ModuleList(self._node_maps_list)
-
-        # Extract number of out channels from node of --last-- layer (not any output node)
-        # A node in the last layer has actually the number of out channels everything is mapped to
-        any_output_node = self._structure.get_vertices(self._structure.last_layer)[0]
-        num_out_channel = self._node_cells[any_output_node].num_out_channel
-
-        self.convlast = nn.Conv2d(num_out_channel, 1000, kernel_size=1)
-        self.fc = MaskedLinearLayer(1000, num_classes)
-
-    def _apply_skip_layer_adaption(self, source_node, target_node, input):
-        source_layer = self._structure.get_layer(source_node)
-        target_layer = self._structure.get_layer(target_node)
-        source_size = self._layer_channel_size(source_layer)
-        target_size = self._layer_channel_size(target_layer)
-
-    def forward(self, input):
-        # input: [batch_size, channels, N, M] = [B, C_in, N, M]
-
-        outputs = { node: None for node in self._structure.nodes }
-
-        for layer in self._structure.layers:
-            for current_node in self._structure.get_vertices(layer):
-
-                if current_node in self._input_nodes:
-                    current_input = [input]
-                else:
-                    #current_input = [ self._node_maps[self._structure.get_layer(u)][layer](outputs[u])
-                    #                  if layer in self._node_maps[self._structure.get_layer(u)] else outputs[u] for (u, _) in self._structure.in_edges(current_node)]
-                    current_input = []
-                    for (source, _) in self._structure.in_edges(current_node):
-                        source_layer = self._structure.get_layer(source)
-                        if layer in self._node_maps[source_layer]:
-                            """print('From source layer', source_layer)
-                            print('To target layer', layer)
-                            print(self._node_maps[source_layer][layer].in_channels)
-                            print(self._node_maps[source_layer][layer].out_channels)
-                            print('Source output shape:', outputs[source].shape)
-                            print('Mapped source output to new channel', self._node_maps[source_layer][layer].out_channels)"""
-                            current_input.append(self._node_maps[source_layer][layer](outputs[source]))
-                        else:
-                            current_input.append(outputs[source])
-
-                feed = torch.stack(current_input, dim=-1)
-
-                outputs[current_node] = self._node_cells[current_node](feed)
-
-        # Collect all outputs of the output nodes into a list and stack it
-        # Use the channel output size of the last layer as targeted outgoing channel size
-        # Every output node from previous layers are mapped through a convolution to the next layer
-        out_list = []
-        for node in self._output_nodes:
-            source_layer = self._structure.get_layer(node)
-            if source_layer is self._structure.last_layer or self._structure.last_layer not in self._node_maps[source_layer]:
-                out_list.append(outputs[node])
-            else:
-                map_to_last_layer = self._node_maps[source_layer][self._structure.last_layer]
-                out_list.append(map_to_last_layer(outputs[node]))
-        result = torch.mean(torch.stack(out_list), dim=0)  # [B, C_out, N, M]
-
-        # Classifier
-        y = F.relu(result) # [B, C_out, N, M]
-        y = self.convlast(y) # [B, 1000, N, M]
-        #y = self.bnlast(y) # [B, 1000, N, M]
-        y = F.adaptive_avg_pool2d(y, (1, 1)) # [B, 1000, 1, 1]
-        y = y.view(y.size(0), -1) # [B, 1000]
-        return self.fc(y) # [B, num_classes]
-        #return F.log_softmax(y, dim=1) # [B, num_classes]
 
 
 class MaskedDeepDAN(nn.Module):

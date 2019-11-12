@@ -4,9 +4,37 @@ import torch
 import torch.nn as nn
 import networkx as nx
 import numpy as np
+import torchvision
 
 import paddle.pruning
 import paddle.sparse
+
+from torch.utils.data import SubsetRandomSampler
+
+
+def get_cifar10_loaders(batch_size:int = 100, dataset_root: str = '/media/data/set/cifar10'):
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    if not os.path.exists(dataset_root):
+        os.makedirs(dataset_root)
+
+    train_set = torchvision.datasets.CIFAR10(root=dataset_root, train=True, download=True, transform=transform)
+    test_set = torchvision.datasets.CIFAR10(root=dataset_root, train=False, download=True, transform=transform)
+    n_training_samples = 20000
+    train_sampler = SubsetRandomSampler(np.arange(n_training_samples, dtype=np.int64))
+    n_val_samples = 5000
+    val_sampler = SubsetRandomSampler(np.arange(n_training_samples, n_training_samples + n_val_samples, dtype=np.int64))
+    n_test_samples = 5000
+    test_sampler = SubsetRandomSampler(np.arange(n_test_samples, dtype=np.int64))
+
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, sampler=train_sampler, num_workers=2)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, sampler=test_sampler, num_workers=2)
+    val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, sampler=val_sampler, num_workers=2)
+
+    return train_loader, test_loader, val_loader
 
 
 def build_layer_index(graph : nx.DiGraph, layer_index=None):

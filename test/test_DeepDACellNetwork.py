@@ -6,6 +6,7 @@ import unittest
 
 from torch.utils.data import SubsetRandomSampler
 
+import paddle.deprecated
 import paddle.sparse
 import paddle.util
 import networkx as nx
@@ -13,10 +14,12 @@ import torchvision
 from paddle.learning import train, test
 from torchvision.transforms import transforms
 
-class MaskedLinearLayerTest(unittest.TestCase):
-    def test_set_mask_explicitly_success(self):
+class DeepDACellNetworkTest(unittest.TestCase):
+    def test_develop(self):
+        return
+
         # Arrange
-        random_graph = nx.watts_strogatz_graph(200, 3, 0.8)
+        random_graph = nx.watts_strogatz_graph(30, 3, 0.8)
         structure = paddle.sparse.CachedLayeredGraph()
         structure.add_edges_from(random_graph.edges)
         structure.add_nodes_from(random_graph.nodes)
@@ -53,8 +56,24 @@ class MaskedLinearLayerTest(unittest.TestCase):
                 input = self.bn(input)  # [B, C_out, N, M]
                 return input
 
+        class SkipMap(nn.Module):
+            def __init__(self, in_channel, out_channel):
+                super(SkipMap, self).__init__()
+                #self.conv = nn.Conv2d(in_channel, out_channel, kernel_size=(3, 3), padding=(1, 1))
+                self.conv = nn.Conv2d(in_channel, out_channel, kernel_size=1)
+                self.bn = nn.BatchNorm2d(out_channel)
+                self.act = nn.ReLU()
+
+            def forward(self, input):
+                # input: [B, C_in, N, M]
+                input = self.conv(self.act(input))  # [B, C_out, N, M]
+                input = self.bn(input)  # [B, C_out, N, M]
+                return input
+
         def layer_channel_size(layer: int):
-            return 3 if layer is 0 else 10 if layer < 4 else 20 if layer < 8 else 40
+            # MNIST: input layer channel size 1
+            # CIFAR: input layer channel size 3
+            return 1 if layer is 0 else 40 if layer < 4 else 80 if layer < 8 else 160
 
         def construct_cell(is_input, is_output, in_degree, out_degree, layer):
             in_channel = layer_channel_size(0 if is_input else layer)
@@ -64,8 +83,16 @@ class MaskedLinearLayerTest(unittest.TestCase):
             cell.layer = layer
             return cell
 
-        model = paddle.sparse.DeepDACellNetwork(10, construct_cell, layer_channel_size, structure)
+        model = paddle.deprecated.DeepDACellNetwork(10, construct_cell, layer_channel_size, SkipMap, structure)
         print(model)
+        print([p.shape for p in model.parameters()])
+
+        def count_parameters(model):
+            return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+        print('Trainable params', count_parameters(model))
+        print('Total params', sum(p.numel() for p in model.parameters()))
+        print('Non-trainable params', sum(p.numel() for p in model.parameters() if not p.requires_grad))
 
         data_base_path = '/home/julian/data'
 
@@ -123,9 +150,21 @@ class MaskedLinearLayerTest(unittest.TestCase):
 
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print(device)
+        model.to(device)
 
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
+        #optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.01, betas=(0.9, 0.999), eps=1e-8, weight_decay=0)
         loss_func = nn.CrossEntropyLoss()
 
-        print(train(train_loader, model, optimizer, loss_func, device))
-        print(test(test_loader, model, device))
+        for epoch in range(250):
+            print('Epoch', epoch)
+            model.train()
+            print(train(mnist_train_loader, model, optimizer, loss_func, device))
+
+            model.eval()
+            print(test(mnist_test_loader, model, device))
+
+        print('Done')
+        print('Test:')
+        model.eval()
+        print(test(mnist_test_loader, model, device))

@@ -17,7 +17,9 @@ def test(test_loader, model, device):
         for test_features, test_labels in test_loader:
             test_features = test_features.to(device)
             test_labels = test_labels.to(device)
-            test_features = torch.flatten(test_features, start_dim=1)
+
+            # TODO remove flattening and change MaskedDAN-networks to work with channels
+            #test_features = torch.flatten(test_features, start_dim=1)
 
             outputs = model(test_features)
             _, predicted = torch.max(outputs.data, 1)
@@ -26,7 +28,7 @@ def test(test_loader, model, device):
         return 100 * correct / total
 
 
-def train(train_loader, model, optimizer, criterion, device, percentage=False):
+def train(train_loader, model, optimizer, criterion, device):
     """
     Train the model on the train data set with a loss function and and optimization algorithm.
 
@@ -46,7 +48,9 @@ def train(train_loader, model, optimizer, criterion, device, percentage=False):
     for i, (features, labels) in enumerate(train_loader):
         features = features.to(device)
         labels = labels.to(device)
-        features = torch.flatten(features, start_dim=1)
+
+        # TODO remove flattening and change MaskedDAN-networks to work with channels
+        #features = torch.flatten(features, start_dim=1)
 
         optimizer.zero_grad()
 
@@ -54,20 +58,14 @@ def train(train_loader, model, optimizer, criterion, device, percentage=False):
         loss = criterion(outputs, labels)
         total_loss += loss.item()
 
-        if percentage:
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
 
         loss.backward()
         optimizer.step()
 
-    if percentage:
-        per = 100 * correct / total
-    else:
-        per = 0
-
-    return total_loss / len(train_loader), per
+    return total_loss / len(train_loader), 100 * correct / total
 
 
 def cross_validation_error(data_set, model, criterion):
