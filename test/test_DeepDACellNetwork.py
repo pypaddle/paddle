@@ -24,6 +24,7 @@ class DeepDACellNetworkTest(unittest.TestCase):
         structure.add_edges_from(random_graph.edges)
         structure.add_nodes_from(random_graph.nodes)
 
+        # Depthwise Separable Convolutions
         class SeparableConv2d(nn.Module):
             def __init__(self, in_channels, out_channels, kernel_size=1, stride=1, padding=0, dilation=1, bias=False):
                 super(SeparableConv2d, self).__init__()
