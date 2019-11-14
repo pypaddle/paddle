@@ -12,17 +12,21 @@ import paddle.sparse
 from torch.utils.data import SubsetRandomSampler
 
 
-def get_cifar10_loaders(batch_size:int = 100, dataset_root: str = 'data/set/cifar10'):
+def get_cifar10_loaders(batch_size:int = 100, possible_dataset_roots = 'data/set/cifar10'):
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
-    if not os.path.exists(dataset_root):
-        os.makedirs(dataset_root)
+    selected_root = possible_dataset_roots[0]
+    for possible_root in possible_dataset_roots:
+        if os.path.exists(possible_root):
+            selected_root = possible_root
+    if not os.path.exists(selected_root):
+        os.makedirs(selected_root)
 
-    train_set = torchvision.datasets.CIFAR10(root=dataset_root, train=True, download=True, transform=transform)
-    test_set = torchvision.datasets.CIFAR10(root=dataset_root, train=False, download=True, transform=transform)
+    train_set = torchvision.datasets.CIFAR10(root=selected_root, train=True, download=True, transform=transform)
+    test_set = torchvision.datasets.CIFAR10(root=selected_root, train=False, download=True, transform=transform)
     n_training_samples = 20000
     train_sampler = SubsetRandomSampler(np.arange(n_training_samples, dtype=np.int64))
     n_val_samples = 5000
@@ -34,7 +38,7 @@ def get_cifar10_loaders(batch_size:int = 100, dataset_root: str = 'data/set/cifa
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, sampler=test_sampler, num_workers=2)
     val_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, sampler=val_sampler, num_workers=2)
 
-    return train_loader, test_loader, val_loader
+    return train_loader, test_loader, val_loader, selected_root
 
 
 def get_mnist_loaders(batch_size:int = 100, possible_dataset_roots = 'data/set/mnist'):
