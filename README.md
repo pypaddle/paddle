@@ -2,12 +2,42 @@
 **Paddle** is a working title for tools for experimenting with sparse structures of artificial neural networks.
 It fuses graph theory / network science and artificial neural networks. 
 
-## Install from private repository
+## Installation
+From public GitHub:
+```bash
+pip install --upgrade git+ssh://git@github.com:pypaddle/paddle.git
+```
+
+From private development repository:
 ```bash
 pip install --upgrade git+ssh://git@gitlab.padim.fim.uni-passau.de:13003/paddle/paddle.git
 ```
 
 ## Sparse Neural Network implementations
+Before considering implementations, one should have a look on possible representations of Sparse Neural Networks.
+In case of feed-forward neural networks (FFNs) the network can be represented as a list of weight matrices.
+Each weight matrix represents the connections from one layer to the next.
+Having a network without some connections then simply means setting entries in those matrices to zero.
+Removing a particular neuron means setting all entries representing its incoming connections to zero.
+
+However, sparsity can be employed on various levels of a general artificial neural network.
+Zero order sparsity would remove single weights (representing connections) from the network.
+First order sparsity removes groups of weights within one dimension of a matrix from the network.
+Sparsity can be employed on connection-, weight-, block-, channel-, cell-level and so on.
+Implementations respecting the areas for sparsification can have drastical differences.
+Thus there are various ways for implementing Sparse Neural Networks.
+
+### Feed-forward Neural Network with sparsity
+The simplest implementation is probably one which provides multiple layers with binary masks for each weight matrix.
+It doesn't consider any skip-layer connections.
+Each layer is then connected to only the following one.
+```python
+import paddle.sparse
+
+mnist_model = paddle.sparse.MaskedDeepFFN((1, 28, 28), 10, [100, 100])
+```
+
+
 ```python
 import paddle.sparse
 

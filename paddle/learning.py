@@ -17,7 +17,6 @@ def test(test_loader, model, device):
         for test_features, test_labels in test_loader:
             test_features = test_features.to(device)
             test_labels = test_labels.to(device)
-            test_features = torch.flatten(test_features, start_dim=1)
 
             outputs = model(test_features)
             _, predicted = torch.max(outputs.data, 1)
@@ -26,7 +25,7 @@ def test(test_loader, model, device):
         return 100 * correct / total
 
 
-def train(train_loader, model, optimizer, criterion, device, percentage=False):
+def train(train_loader, model, optimizer, criterion, device):
     """
     Train the model on the train data set with a loss function and and optimization algorithm.
 
@@ -46,7 +45,6 @@ def train(train_loader, model, optimizer, criterion, device, percentage=False):
     for i, (features, labels) in enumerate(train_loader):
         features = features.to(device)
         labels = labels.to(device)
-        features = torch.flatten(features, start_dim=1)
 
         optimizer.zero_grad()
 
@@ -54,36 +52,11 @@ def train(train_loader, model, optimizer, criterion, device, percentage=False):
         loss = criterion(outputs, labels)
         total_loss += loss.item()
 
-        if percentage:
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
 
         loss.backward()
         optimizer.step()
 
-    if percentage:
-        per = 100 * correct / total
-    else:
-        per = 0
-
-    return total_loss / len(train_loader), per
-
-
-def cross_validation_error(data_set, model, criterion):
-    """
-    Calculate the loss of the network on the cross-validation dataset.
-
-    :param data_set:   The loader of the cross validation dataset.
-    :param model:      The model on which the loss should be calculated on.
-    :param criterion:  The loss function that should be used with the model.
-    :return: The overall loss of the network.
-    """
-
-    loss = 0
-    for (images, labels) in data_set:
-        images = images.reshape(-1, 28 * 28)
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-
-    return loss
+    return total_loss / len(train_loader), 100 * correct / total
