@@ -18,9 +18,6 @@ def test(test_loader, model, device):
             test_features = test_features.to(device)
             test_labels = test_labels.to(device)
 
-            # TODO remove flattening and change MaskedDAN-networks to work with channels
-            #test_features = torch.flatten(test_features, start_dim=1)
-
             outputs = model(test_features)
             _, predicted = torch.max(outputs.data, 1)
             total += test_labels.size(0)
@@ -49,9 +46,6 @@ def train(train_loader, model, optimizer, criterion, device):
         features = features.to(device)
         labels = labels.to(device)
 
-        # TODO remove flattening and change MaskedDAN-networks to work with channels
-        #features = torch.flatten(features, start_dim=1)
-
         optimizer.zero_grad()
 
         outputs = model(features)
@@ -66,22 +60,3 @@ def train(train_loader, model, optimizer, criterion, device):
         optimizer.step()
 
     return total_loss / len(train_loader), 100 * correct / total
-
-
-def cross_validation_error(data_set, model, criterion):
-    """
-    Calculate the loss of the network on the cross-validation dataset.
-
-    :param data_set:   The loader of the cross validation dataset.
-    :param model:      The model on which the loss should be calculated on.
-    :param criterion:  The loss function that should be used with the model.
-    :return: The overall loss of the network.
-    """
-
-    loss = 0
-    for (images, labels) in data_set:
-        images = images.reshape(-1, 28 * 28)
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-
-    return loss

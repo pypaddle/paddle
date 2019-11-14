@@ -241,9 +241,9 @@ class MaskableModule(nn.Module):
         for layer in maskable_layers(self):
             layer.apply_mask()
 
-    def recompute_mask(self):
+    def recompute_mask(self, theta=0.0001):
         for layer in maskable_layers(self):
-            layer.recompute_mask()
+            layer.recompute_mask(theta)
 
 
 class MaskedDeepDAN(MaskableModule):
@@ -253,11 +253,13 @@ class MaskedDeepDAN(MaskableModule):
     def __init__(self, input_size, num_classes, structure : LayeredGraph):
         super(MaskedDeepDAN, self).__init__()
 
-        #layer_index, vertex_by_layer = paddle.util.build_layer_index(structure)
-        #layers = [l for l in vertex_by_layer]
-
         self._structure = structure
         assert structure.num_layers > 0
+
+        # Multiple dimensions for input size are flattened out
+        if type(input_size) is tuple or type(input_size) is torch.Size:
+            input_size = np.prod(input_size)
+        input_size = int(input_size)
 
         self.layer_first = MaskedLinearLayer(input_size, structure.first_layer_size)
         self.layers_main_hidden = nn.ModuleList([MaskedLinearLayer(structure.get_layer_size(l-1), structure.get_layer_size(l)) for l in structure.layers[1:]])
@@ -357,20 +359,6 @@ class MaskedDeepDAN(MaskableModule):
                 source_idx2node = layer_nodeidx2node[source_layer_idx]
                 target_idx2node = layer_nodeidx2node[target_layer_idx]
 
-
-                """print('source_layer_idx', source_layer_idx)
-                print('len(l =', source_layer_idx, ') would be', len(layer_nodeidx2node[source_layer_idx]))
-                print('target_layer_idx', target_layer_idx)
-                print('len(l =', target_layer_idx, ') would be', len(layer_nodeidx2node[target_layer_idx]))
-                print('Mask shape', source_layer.mask.shape)
-                for l in layer_nodeidx2node:
-                    print('\tl = ', l, 'len =', len(layer_nodeidx2node[l]), 'values =', layer_nodeidx2node[l])"""
-                """print('layer_nodeidx2node', layer_nodeidx2node)
-                print('target_layer_idx', target_layer_idx)
-                print('source_layer_idx', source_layer_idx)
-                print('Mask shape', source_layer.mask.shape)
-                print('source idx2node', source_idx2node)
-                print('target idx2node', target_idx2node)"""
                 for source_node_idx in range(source_layer.mask.shape[1]):
                     source_node = source_idx2node[source_node_idx]
                     for target_node_idx in range(source_layer.mask.shape[0]):
@@ -394,7 +382,10 @@ class MaskedDeepDAN(MaskableModule):
 
         return structure
 
-    def forward(self, x):
+    def forward(self, input):
+        # input : [batch_size, ?, ?, ..], e.g. [100, 1, 28, 28] or [100, 3, 32, 32]
+        x = input.flatten(start_dim=1)
+        # x: [batch_size, ?*?*..], e.g. [100, 784] or [100, 3072]
         last_output = self.activation(self.layer_first(x))
         layer_results = {0: last_output}
         for layer, layer_idx in zip(self.layers_main_hidden, self._structure.layers[1:]):
@@ -424,7 +415,7 @@ class MaskedDeepFFN(MaskableModule):
         assert len(hidden_layers) > 0
 
         # Multiple dimensions for input size are flattened out
-        if type(input_size) is tuple:
+        if type(input_size) is tuple or type(input_size) is torch.Size:
             input_size = np.prod(input_size)
         input_size = int(input_size)
 
@@ -457,10 +448,11 @@ class MaskedDeepFFN(MaskableModule):
         return structure
 
     def forward(self, input):
-        out = self.activation(self.layer_first(input.flatten()))
+        # input : [batch_size, ?, ?, ..], e.g. [100, 1, 28, 28] or [100, 3, 32, 32]
+        out = self.activation(self.layer_first(input.flatten(start_dim=1)))  # [B, n_hidden_1]
         for layer in self.layers_hidden:
             out = self.activation(layer(out))
-        return self.layer_out(out)
+        return self.layer_out(out)  # [B, n_out]
 
     def to(self, *args, **kwargs):
         super().to(*args, **kwargs)
@@ -524,15 +516,15 @@ class MaskedLinearLayer(nn.Linear):
         # Using direct manipulation on tensor "self.weight.data"
         self.weight.data = self.weight * self.mask
 
-    def recompute_mask(self, epsilon: float = 0.001):
+    def recompute_mask(self, theta: float = 0.001):
         """
         Recomputes the mask based on the weight magnitudes.
         If you want to consider the existing mask, make sure to first call apply_mask() and then recompute it.
 
-        :param epsilon: Specifies a possible threshold for absolute distance to zero.
+        :param theta: Specifies a possible threshold for absolute distance to zero.
         """
         self.mask = torch.ones(self.weight.shape, dtype=torch.bool, device=self.mask.device)
-        self.mask[torch.where(abs(self.weight) < epsilon)] = False
+        self.mask[torch.where(abs(self.weight) < theta)] = False
 
     def get_weight(self):
         return self.weight

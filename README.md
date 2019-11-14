@@ -34,7 +34,7 @@ Each layer is then connected to only the following one.
 ```python
 import paddle.sparse
 
-model = paddle.sparse.MaskedDeepFFN(784, 10, [100, 100])
+mnist_model = paddle.sparse.MaskedDeepFFN((1, 28, 28), 10, [100, 100])
 ```
 
 
