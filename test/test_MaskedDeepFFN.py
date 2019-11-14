@@ -16,26 +16,32 @@ class MaskedLinearLayerTest(unittest.TestCase):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
         # Arrange
+        batch_size = 10
         input_size = 784
-        model = paddle.sparse.MaskedDeepFFN(input_size, 10, [200, 100, 50])
-        model.to(device)
-        random_input = torch.tensor(np.random.random(input_size), device=device, requires_grad=False)
-
-        # Act
-        model(random_input)
-
-    def test_random_forward_with_multiple_dimensions_success(self):
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
-        # Arrange
-        input_size = (10, 5, 8)
         output_size = 10
         model = paddle.sparse.MaskedDeepFFN(input_size, output_size, [200, 100, 50])
         model.to(device)
-        random_input = torch.tensor(np.random.random(input_size), device=device, requires_grad=False)
+        random_input = torch.tensor(np.random.random((batch_size, input_size)), device=device, requires_grad=False)
 
         # Act
         output = model(random_input)
 
         # Assert
-        self.assertEqual(output.numel(), output_size)
+        self.assertEqual(output.numel(), batch_size*output_size)
+
+    def test_random_forward_with_multiple_dimensions_success(self):
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+        # Arrange
+        batch_size = 10
+        input_size = (10, 5, 8)
+        output_size = 10
+        model = paddle.sparse.MaskedDeepFFN(input_size, output_size, [100, 200, 50])
+        model.to(device)
+        random_input = torch.tensor(np.random.random((batch_size,)+input_size), device=device, requires_grad=False)
+
+        # Act
+        output = model(random_input)
+
+        # Assert
+        self.assertEqual(output.numel(), batch_size*output_size)
