@@ -236,7 +236,17 @@ class DeepCellDAN(nn.Module):
         self._nodes = nn.ModuleList(list(self._node_cells.values()))
 
 
-class MaskedDeepDAN(nn.Module):
+class MaskableModule(nn.Module):
+    def apply_mask(self):
+        for layer in maskable_layers(self):
+            layer.apply_mask()
+
+    def recompute_mask(self):
+        for layer in maskable_layers(self):
+            layer.recompute_mask()
+
+
+class MaskedDeepDAN(MaskableModule):
     """
     A deep directed acyclic network model which is capable of masked layers and masked skip-layer connections.
     """
@@ -283,22 +293,6 @@ class MaskedDeepDAN(nn.Module):
 
         self.layer_out = MaskedLinearLayer(structure.last_layer_size, num_classes)
         self.activation = nn.ReLU()
-
-    def apply_mask(self):
-        self.layer_first.apply_mask()
-        for layer in self.layers_main_hidden:
-            layer.apply_mask()
-        for layer in self.layers_skip_hidden:
-            layer.apply_mask()
-        self.layer_out.apply_mask()
-
-    def recompute_mask(self):
-        self.layer_first.recompute_mask()
-        for layer in self.layers_main_hidden:
-            layer.recompute_mask()
-        for layer in self.layers_skip_hidden:
-            layer.recompute_mask()
-        self.layer_out.recompute_mask()
 
     def generate_structure(self, include_input=False, include_output=False):
         structure = CachedLayeredGraph()
@@ -419,7 +413,7 @@ class MaskedDeepDAN(nn.Module):
         return self.layer_out(last_output)
 
 
-class MaskedDeepFFN(nn.Module):
+class MaskedDeepFFN(MaskableModule):
     """
     A deep feed-forward network model which is capable of masked layers.
     Masked layers can represent sparse structures between consecutive layers.
@@ -428,6 +422,11 @@ class MaskedDeepFFN(nn.Module):
     def __init__(self, input_size, num_classes, hidden_layers : list):
         super(MaskedDeepFFN, self).__init__()
         assert len(hidden_layers) > 0
+
+        # Multiple dimensions for input size are flattened out
+        if type(input_size) is tuple:
+            input_size = np.prod(input_size)
+        input_size = int(input_size)
 
         self.layer_first = MaskedLinearLayer(input_size, hidden_layers[0])
         self.layers_hidden = nn.ModuleList([MaskedLinearLayer(hidden_layers[l], h) for l, h in enumerate(hidden_layers[1:])])
@@ -457,8 +456,8 @@ class MaskedDeepFFN(nn.Module):
 
         return structure
 
-    def forward(self, x):
-        out = self.activation(self.layer_first(x))
+    def forward(self, input):
+        out = self.activation(self.layer_first(input.flatten()))
         for layer in self.layers_hidden:
             out = self.activation(layer(out))
         return self.layer_out(out)
@@ -545,10 +544,13 @@ class MaskedLinearLayer(nn.Linear):
         if hasattr(self, 'mask') and not keep_mask:
             self.mask = torch.ones(self.weight.size(), dtype=torch.bool)
 
-    def forward(self, x):
+    def forward(self, input):
+        x = input.float()  # In case we get a double-tensor passed, force it to be float for multiplications to work
+
         # Possibly store the layer input
         if self.keep_layer_input:
             self.layer_input = x.data
+
         return F.linear(x, self.weight * self.mask, self.bias)
 
 

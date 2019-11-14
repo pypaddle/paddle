@@ -2,6 +2,7 @@ import torch
 import torch.utils
 import unittest
 import paddle.sparse
+import numpy as np
 
 
 class MaskedLinearLayerTest(unittest.TestCase):
@@ -11,11 +12,30 @@ class MaskedLinearLayerTest(unittest.TestCase):
         print(structure)
         # TODO
 
-    def test_default(self):
-        model = paddle.sparse.MaskedDeepFFN(784, 10, [200, 100, 50])
-
+    def test_random_forward_possibly_on_gpu_success(self):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        # Assuming that we are on a CUDA machine, this should print a CUDA device:
-        print(device)
 
-        print(model)
+        # Arrange
+        input_size = 784
+        model = paddle.sparse.MaskedDeepFFN(input_size, 10, [200, 100, 50])
+        model.to(device)
+        random_input = torch.tensor(np.random.random(input_size), device=device, requires_grad=False)
+
+        # Act
+        model(random_input)
+
+    def test_random_forward_with_multiple_dimensions_success(self):
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+        # Arrange
+        input_size = (10, 5, 8)
+        output_size = 10
+        model = paddle.sparse.MaskedDeepFFN(input_size, output_size, [200, 100, 50])
+        model.to(device)
+        random_input = torch.tensor(np.random.random(input_size), device=device, requires_grad=False)
+
+        # Act
+        output = model(random_input)
+
+        # Assert
+        self.assertEqual(output.numel(), output_size)
